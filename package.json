@@ -1,0 +1,33 @@
+{
+  "name": "api-top",
+  "version": "1.0.0",
+  "description": "The Only Psychologist API",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/burakenaktas/api-top.git"
+  },
+  "keywords": [
+    "The",
+    "Only",
+    "Psychologist",
+    "Psychology",
+    "Enterprise"
+  ],
+  "author": "@burakenaktas",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/burakenaktas/api-top/issues"
+  },
+  "homepage": "https://github.com/burakenaktas/api-top#readme",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.1",
+    "mongoose": "^8.2.2"
+  }
+}
