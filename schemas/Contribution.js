@@ -6,6 +6,7 @@ const contributionSchema = new mongoose.Schema({
   title: String,
   email: String,
   topic: String,
+  isApproved: Boolean,
 });
 
 module.exports = mongoose.model("Contribution", contributionSchema);
