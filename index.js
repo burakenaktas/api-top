@@ -43,12 +43,13 @@ app.post("/api/contribute", jsonParser, async (req, res) => {
 app.get("/api/contributions", async (req, res) => {
   try {
     const contributions = await Contribution.find(
-      req.params.topic
-        ? { topic: req.params.topic, isApproved: true }
+      req.query.topic
+        ? { topic: req.query.topic, isApproved: true }
         : {
             isApproved: true,
           }
     );
+
     res.status(200).send(contributions);
   } catch (error) {
     res.status(400).send("Error fetching contributions");
