@@ -31,7 +31,7 @@ app.post("/api/contribute", jsonParser, async (req, res) => {
       title,
       email,
       topic,
-      isAprroved: false,
+      isApproved: false,
     });
 
     res.status(200).send("Contribution added successfully");
