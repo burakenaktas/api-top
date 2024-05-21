@@ -6,6 +6,7 @@ const bodyParser = require("body-parser");
 const { default: mongoose } = require("mongoose");
 // const dayjs = require("dayjs");
 const Contribution = require("./schemas/Contribution");
+const Feedback = require("./schemas/Feedback");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 mongoose.connect(process.env.MONGODB_URL).catch((err) => {
@@ -53,6 +54,23 @@ app.get("/api/contributions", async (req, res) => {
     res.status(200).send(contributions);
   } catch (error) {
     res.status(400).send("Error fetching contributions");
+  }
+});
+
+app.post("/api/feedback", jsonParser, async (req, res) => {
+  const { feedback, contactMe, email, name } = req.body;
+
+  try {
+    await Feedback.create({
+      name,
+      email,
+      feedback,
+      contactMe,
+    });
+
+    res.status(200).send("Feedback added successfully");
+  } catch (error) {
+    res.status(400).send("Error adding feedback");
   }
 });
 
