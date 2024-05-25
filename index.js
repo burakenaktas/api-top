@@ -7,6 +7,7 @@ const { default: mongoose } = require("mongoose");
 // const dayjs = require("dayjs");
 const Contribution = require("./schemas/Contribution");
 const Feedback = require("./schemas/Feedback");
+const ContactUs = require("./schemas/ContactUs");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 mongoose.connect(process.env.MONGODB_URL).catch((err) => {
@@ -71,6 +72,22 @@ app.post("/api/feedback", jsonParser, async (req, res) => {
     res.status(200).send("Feedback added successfully");
   } catch (error) {
     res.status(400).send("Error adding feedback");
+  }
+});
+
+app.post("/api/contact-us", jsonParser, async (req, res) => {
+  const { name, email, message } = req.body;
+
+  try {
+    await ContactUs.create({
+      name,
+      email,
+      message,
+    });
+
+    res.status(200).send("Message sent successfully");
+  } catch (error) {
+    res.status(400).send("Error sending message");
   }
 });
 
