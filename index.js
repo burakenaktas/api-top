@@ -8,6 +8,7 @@ const { default: mongoose } = require("mongoose");
 const Contribution = require("./schemas/Contribution");
 const Feedback = require("./schemas/Feedback");
 const ContactUs = require("./schemas/ContactUs");
+const LoveForm = require("./schemas/LoveForm");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 mongoose.connect(process.env.MONGODB_URL).catch((err) => {
@@ -72,6 +73,16 @@ app.post("/api/feedback", jsonParser, async (req, res) => {
     res.status(200).send("Feedback added successfully");
   } catch (error) {
     res.status(400).send("Error adding feedback");
+  }
+});
+
+app.post("/api/love", jsonParser, async (req, res) => {
+  try {
+    await LoveForm.create(req.body);
+
+    res.status(201).send("Form data saved successfully!");
+  } catch (error) {
+    res.status(400).send("Error saving form data: " + error.message);
   }
 });
 
