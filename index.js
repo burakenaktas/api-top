@@ -10,6 +10,7 @@ const Contribution = require("./schemas/Contribution");
 const Feedback = require("./schemas/Feedback");
 const ContactUs = require("./schemas/ContactUs");
 const LoveForm = require("./schemas/LoveForm");
+const TestResult = require("./schemas/TestResult");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 mongoose.connect(process.env.MONGODB_URL).catch((err) => {
@@ -244,6 +245,27 @@ app.delete("/chores/:id", jsonParser, async (req, res) => {
 });
 
 // LIFEASIFY PART //
+
+// RELATIONSHIP TEST PART //
+
+app.post("/relationship-test", jsonParser, async (req, res) => {
+  const { gender, email, answers, results } = req.body;
+
+  try {
+    await TestResult.create({
+      gender,
+      email,
+      answers,
+      results,
+    });
+
+    res.status(200).send("Message sent successfully");
+  } catch (error) {
+    res.status(400).send("Error sending message");
+  }
+});
+
+// RELATIONSHIP TEST PART //
 
 app.listen(8000, () => {
   console.log(`Server is running on port 8000`);
