@@ -111,7 +111,6 @@ app.get("/todays-chores", async (req, res) => {
   const NOT_DONE_CHORES = await Chore.find({
     status: "NOT_DONE",
     nextDue: {
-      $gte: dayjs().subtract(7, "days").format("YYYY-MM-DD"),
       $lte: dayjs().format("YYYY-MM-DD"),
     },
   });
