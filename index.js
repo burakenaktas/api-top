@@ -11,6 +11,7 @@ const Feedback = require("./schemas/Feedback");
 const ContactUs = require("./schemas/ContactUs");
 const LoveForm = require("./schemas/LoveForm");
 const TestResult = require("./schemas/TestResult");
+const Contact = require("./schemas/Contact");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 mongoose.connect(process.env.MONGODB_URL).catch((err) => {
@@ -90,7 +91,6 @@ app.post("/api/love", jsonParser, async (req, res) => {
 
 app.post("/api/contact-us", jsonParser, async (req, res) => {
   const { name, email, message } = req.body;
-  N;
 
   try {
     await ContactUs.create({
@@ -244,6 +244,331 @@ app.delete("/chores/:id", jsonParser, async (req, res) => {
 });
 
 // LIFEASIFY PART //
+
+// FRIENDS & CONTACTS API PART //
+
+// 1. Get All Contacts (Enhanced with Filtering & Sorting)
+app.get("/api/contacts", async (req, res) => {
+  try {
+    const userId = req.query.userId || "default"; // Simple user handling for now
+    const {
+      sortBy = "priority", // 'priority', 'name', 'recent'
+      order = "asc", // 'asc' or 'desc'
+      limit = 100,
+      offset = 0,
+    } = req.query;
+
+    let sortOption = {};
+
+    switch (sortBy) {
+      case "priority":
+        // Sort by oldest contact first (priority order)
+        sortOption = { lastContactDate: 1 };
+        break;
+      case "recent":
+        // Sort by most recent contact first
+        sortOption = { lastContactDate: -1 };
+        break;
+      case "name":
+        sortOption = { name: order === "desc" ? -1 : 1 };
+        break;
+      default:
+        sortOption = { lastContactDate: 1 };
+    }
+
+    const contacts = await Contact.find({ userId })
+      .sort(sortOption)
+      .limit(parseInt(limit))
+      .skip(parseInt(offset));
+
+    // Add computed fields for frontend
+    const contactsWithStatus = contacts.map((contact) => {
+      const daysSinceContact = Math.floor(
+        (new Date() - new Date(contact.lastContactDate)) / (1000 * 60 * 60 * 24)
+      );
+
+      let status = "green";
+      if (daysSinceContact > 180) status = "red";
+      else if (daysSinceContact > 30) status = "yellow";
+
+      return {
+        ...contact.toObject(),
+        daysSinceContact,
+        status,
+        priority:
+          daysSinceContact > 180
+            ? "high"
+            : daysSinceContact > 30
+            ? "medium"
+            : "low",
+      };
+    });
+
+    // Get total count for pagination
+    const totalCount = await Contact.countDocuments({ userId });
+
+    res.json({
+      contacts: contactsWithStatus,
+      pagination: {
+        total: totalCount,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: totalCount > parseInt(offset) + parseInt(limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    res.status(500).json({
+      error: "Failed to fetch contacts",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// 2. Add New Contact (Enhanced)
+app.post("/api/contacts", jsonParser, async (req, res) => {
+  try {
+    const userId = req.body.userId || "default";
+    const { name, contactInfo } = req.body;
+
+    // Enhanced validation
+    if (!name || !contactInfo) {
+      return res.status(400).json({
+        error: "Name and contact info are required",
+        field: !name ? "name" : "contactInfo",
+      });
+    }
+
+    const trimmedName = name.trim();
+    const trimmedContactInfo = contactInfo.trim();
+
+    // Length validation
+    if (trimmedName.length < 2 || trimmedName.length > 50) {
+      return res.status(400).json({
+        error: "Name must be between 2 and 50 characters",
+        field: "name",
+      });
+    }
+
+    if (trimmedContactInfo.length < 3 || trimmedContactInfo.length > 100) {
+      return res.status(400).json({
+        error: "Contact info must be between 3 and 100 characters",
+        field: "contactInfo",
+      });
+    }
+
+    // Check for duplicate contacts for this user
+    const existingContact = await Contact.findOne({
+      userId,
+      $or: [
+        { name: { $regex: new RegExp(`^${trimmedName}$`, "i") } },
+        { contactInfo: { $regex: new RegExp(`^${trimmedContactInfo}$`, "i") } },
+      ],
+    });
+
+    if (existingContact) {
+      return res.status(409).json({
+        error: "A contact with this name or contact info already exists",
+        existingContact: {
+          name: existingContact.name,
+          contactInfo: existingContact.contactInfo,
+        },
+      });
+    }
+
+    // Create new contact
+    const contact = new Contact({
+      name: trimmedName,
+      contactInfo: trimmedContactInfo,
+      lastContactDate: new Date(),
+      userId,
+    });
+
+    await contact.save();
+
+    res.status(201).json({
+      message: "Contact created successfully",
+      contact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({
+      error: "Failed to create contact",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// 3. Update Last Contact Date
+app.put("/api/contacts/:id/last-contact", jsonParser, async (req, res) => {
+  try {
+    const userId = req.body.userId || "default";
+    const { id } = req.params;
+
+    const contact = await Contact.findOneAndUpdate(
+      { _id: id, userId },
+      { lastContactDate: new Date() },
+      { new: true }
+    );
+
+    if (!contact) {
+      return res.status(404).json({ error: "Contact not found" });
+    }
+
+    res.json(contact);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update contact" });
+  }
+});
+
+// 4. Delete Contact
+app.delete("/api/contacts/:id", jsonParser, async (req, res) => {
+  try {
+    const userId = req.query.userId || "default";
+    const { id } = req.params;
+
+    const contact = await Contact.findOneAndDelete({ _id: id, userId });
+
+    if (!contact) {
+      return res.status(404).json({ error: "Contact not found" });
+    }
+
+    res.json({ message: "Contact deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete contact" });
+  }
+});
+
+// 5. Update Contact Info
+app.put("/api/contacts/:id", jsonParser, async (req, res) => {
+  try {
+    const userId = req.body.userId || "default";
+    const { id } = req.params;
+    const { name, contactInfo } = req.body;
+
+    if (!name || !contactInfo) {
+      return res
+        .status(400)
+        .json({ error: "Name and contact info are required" });
+    }
+
+    const contact = await Contact.findOneAndUpdate(
+      { _id: id, userId },
+      {
+        name: name.trim(),
+        contactInfo: contactInfo.trim(),
+      },
+      { new: true }
+    );
+
+    if (!contact) {
+      return res.status(404).json({ error: "Contact not found" });
+    }
+
+    res.json(contact);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update contact" });
+  }
+});
+
+// 6. Search Contacts
+app.get("/api/contacts/search", async (req, res) => {
+  try {
+    const userId = req.query.userId || "default";
+    const { q } = req.query;
+
+    if (!q || q.trim().length < 2) {
+      return res
+        .status(400)
+        .json({ error: "Search query must be at least 2 characters" });
+    }
+
+    const searchRegex = new RegExp(q.trim(), "i");
+    const contacts = await Contact.find({
+      userId,
+      $or: [{ name: searchRegex }, { contactInfo: searchRegex }],
+    }).sort({ lastContactDate: 1 });
+
+    res.json(contacts);
+  } catch (error) {
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
+// 7. Get Contact Statistics
+app.get("/api/contacts/stats", async (req, res) => {
+  try {
+    const userId = req.query.userId || "default";
+
+    const totalContacts = await Contact.countDocuments({ userId });
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+
+    const recentContacts = await Contact.countDocuments({
+      userId,
+      lastContactDate: { $gte: thirtyDaysAgo },
+    });
+
+    const staleContacts = await Contact.countDocuments({
+      userId,
+      lastContactDate: { $lt: sixMonthsAgo },
+    });
+
+    res.json({
+      total: totalContacts,
+      recent: recentContacts, // contacted within 30 days
+      stale: staleContacts, // not contacted for 6+ months
+      percentageRecent:
+        totalContacts > 0
+          ? Math.round((recentContacts / totalContacts) * 100)
+          : 0,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get statistics" });
+  }
+});
+
+// 8. Bulk Update Contacts
+app.patch("/api/contacts/bulk-update", jsonParser, async (req, res) => {
+  try {
+    const userId = req.body.userId || "default";
+    const { updates } = req.body;
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: "Updates array is required" });
+    }
+
+    const results = [];
+    for (const update of updates) {
+      const { contactId, lastContactDate } = update;
+
+      if (!contactId) continue;
+
+      const contact = await Contact.findOneAndUpdate(
+        { _id: contactId, userId },
+        { lastContactDate: lastContactDate || new Date() },
+        { new: true }
+      );
+
+      if (contact) {
+        results.push(contact);
+      }
+    }
+
+    res.json({
+      message: `Updated ${results.length} contacts`,
+      contacts: results,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Bulk update failed" });
+  }
+});
+
+// FRIENDS & CONTACTS API PART //
 
 // RELATIONSHIP TEST PART //
 
